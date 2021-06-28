@@ -3,14 +3,17 @@ import nibabel as nib
 import math
 import os
 from skimage.util import view_as_windows
+import glob  # For populating the list of files
 
 
 class Train_dataset(object):
     def __init__(self, batch_size, overlapping=1):
         self.batch_size = batch_size
-        self.data_path = '/imatge/isanchez/projects/neuro/ADNI-Screening-1.5T'
+        # self.data_path = '/imatge/isanchez/projects/neuro/ADNI-Screening-1.5T'
+        self.data_path = "C:/Users/Andres/Documents/data_prueba"
+        # self.data_path = "D:/Datasets/10.12751_g-node.aa605a/MALPEM_cross-sectional_seg138_5074"
         self.subject_list = os.listdir(self.data_path)
-        self.subject_list = np.delete(self.subject_list, 120)
+        # self.subject_list = np.delete(self.subject_list, 120)
         self.heigth_patch = 112  # 128
         self.width_patch = 112  # 128
         self.depth_patch = 76  # 92
@@ -22,20 +25,27 @@ class Train_dataset(object):
 
     def mask(self, iteration):
         subject_batch = self.subject_list[iteration * self.batch_size:self.batch_size + (iteration * self.batch_size)]
-        subjects_true = np.empty([self.batch_size, 256, 256, 184])
+        # subjects_true = np.empty([self.batch_size, 256, 256, 184])
+        subjects_true = np.empty([self.batch_size, 184, 256, 256])        
         i = 0
-        for subject in subject_batch:
+
+        path = "D:/Datasets/ADNI/MASK/*"
+
+        files = glob.glob(path)[:1]
+
+        for subject, file_name in zip(subject_batch, files):
             if subject != 'ADNI_SCREENING_CLINICAL_FILE_08_02_17.csv':
-                filename = os.path.join(self.data_path, subject)
-                filename = os.path.join(filename, 'T1_brain_extractedBrainExtractionMask.nii.gz')
-                proxy = nib.load(filename)
+                # filename = os.path.join(self.data_path, subject)
+                # filename = os.path.join(filename, 'T1_brain_extractedBrainExtractionMask.nii.gz')
+                # filename = os.path.join(filename, file_name)
+                proxy = nib.load(file_name)
                 data = np.array(proxy.dataobj)
 
-                paddwidthr = int((256 - proxy.shape[0]) / 2)
+                paddwidthr = int((256 - proxy.shape[2]) / 2)
                 paddheightr = int((256 - proxy.shape[1]) / 2)
-                paddepthr = int((184 - proxy.shape[2]) / 2)
+                paddepthr = int((184 - proxy.shape[0]) / 2)
 
-                if (paddwidthr * 2 + proxy.shape[0]) != 256:
+                if (paddwidthr * 2 + proxy.shape[2]) != 256:
                     paddwidthl = paddwidthr + 1
                 else:
                     paddwidthl = paddwidthr
@@ -45,15 +55,19 @@ class Train_dataset(object):
                 else:
                     paddheightl = paddheightr
 
-                if (paddepthr * 2 + proxy.shape[2]) != 184:
+                if (paddepthr * 2 + proxy.shape[0]) != 184:
                     paddepthl = paddepthr + 1
                 else:
                     paddepthl = paddepthr
 
-                data_padded = np.pad(data,
-                                     [(paddwidthl, paddwidthr), (paddheightl, paddheightr), (paddepthl, paddepthr)],
-                                     'constant', constant_values=0)
-                subjects_true[i] = data_padded
+                data_padded = data
+
+                if paddwidthr + paddheightr + paddepthr != 0:
+                    data_padded = np.pad(data,
+                                        [(paddepthl, paddepthr), (paddheightl, paddheightr), (paddwidthl, paddwidthr)],
+                                        'constant', constant_values=0)
+
+                subjects_true[i] = data_padded[..., 0]
                 i = i + 1
         mask = np.empty(
             [self.batch_size * self.num_patches, self.width_patch + self.margin, self.heigth_patch + self.margin,
@@ -97,20 +111,31 @@ class Train_dataset(object):
 
     def data_true(self, iteration):
         subject_batch = self.subject_list[iteration * self.batch_size:self.batch_size + (iteration * self.batch_size)]
-        subjects = np.empty([self.batch_size, 224, 224, 152])
+        # subjects = np.empty([self.batch_size, 224, 224, 152])
+        subjects = np.empty([self.batch_size, 168, 224, 152])
+        # files = os.listdir(self.data_path)
+
+        # path = "D:/Datasets/ADNI/*/*/*/*/*"
+        path = "D:/Datasets/ADNI/MRI/*"
+        files = glob.glob(path)[:1]
+
         i = 0
-        for subject in subject_batch:
+        for subject, file_name in zip(subject_batch, files):
             if subject != 'ADNI_SCREENING_CLINICAL_FILE_08_02_17.csv':
-                filename = os.path.join(self.data_path, subject)
-                filename = os.path.join(filename, 'T1_brain_extractedBrainExtractionBrain.nii.gz')
-                proxy = nib.load(filename)
+                # filename = os.path.join(self.data_path, subject)
+                # filename = os.path.join(filename, 'T1_brain_extractedBrainExtractionBrain.nii.gz')
+
+                # filename = os.path.join(self.data_path, file_name)
+
+                proxy = nib.load(file_name)
                 data = np.array(proxy.dataobj)
 
-                paddwidthr = int((256 - proxy.shape[0]) / 2)
-                paddheightr = int((256 - proxy.shape[1]) / 2)
-                paddepthr = int((184 - proxy.shape[2]) / 2)
 
-                if (paddwidthr * 2 + proxy.shape[0]) != 256:
+                paddwidthr = int((256 - proxy.shape[2]) / 2)
+                paddheightr = int((256 - proxy.shape[1]) / 2)
+                paddepthr = int((184 - proxy.shape[0]) / 2)
+
+                if (paddwidthr * 2 + proxy.shape[2]) != 256:
                     paddwidthl = paddwidthr + 1
                 else:
                     paddwidthl = paddwidthr
@@ -120,15 +145,21 @@ class Train_dataset(object):
                 else:
                     paddheightl = paddheightr
 
-                if (paddepthr * 2 + proxy.shape[2]) != 184:
+                if (paddepthr * 2 + proxy.shape[0]) != 184:
                     paddepthl = paddepthr + 1
                 else:
                     paddepthl = paddepthr
+                
+                data_padded = data
 
-                data_padded = np.pad(data,
-                                     [(paddwidthl, paddwidthr), (paddheightl, paddheightr), (paddepthl, paddepthr)],
-                                     'constant', constant_values=0)
+                if paddwidthr + paddheightr + paddepthr != 0:
+                    data_padded = np.pad(data,
+                                        [(paddepthl, paddepthr), (paddheightl, paddheightr), (paddwidthl, paddwidthr)],
+                                        'constant', constant_values=0)
+                # data_padded = np.pad(data,
+                #                      [(paddwidthl, paddwidthr), (paddheightl, paddheightr), (paddepthl, paddepthr)],
+                #                      'constant', constant_values=0)
 
-                subjects[i] = data_padded[16:240, 16:240, 16:168]  # remove background
+                subjects[i] = data_padded[16:240, 16:240, 16:168, 0]  # remove background
                 i = i + 1
         return subjects

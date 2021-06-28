@@ -1,18 +1,19 @@
 import tensorflow as tf
 import tensorlayer as tl
 from tensorlayer.layers import *
-from dataset import Train_dataset
 import math
 from scipy.ndimage.interpolation import zoom
 from scipy.ndimage.filters import gaussian_filter
-from utils import smooth_gan_labels, aggregate, subPixelConv3d
 import nibabel as nib
 import os
 from skimage.measure import compare_ssim as ssim
 from skimage.measure import compare_psnr as psnr
 from keras.layers.convolutional import UpSampling3D
 import argparse
+import numpy as np
 
+from dataset import Train_dataset
+from utils import smooth_gan_labels, aggregate, subPixelConv3d
 
 def lrelu1(x):
     return tf.maximum(x, 0.25 * x)
@@ -99,7 +100,7 @@ def generator(input_gen, kernel, nb, upscaling_factor, reuse, feature_size, img_
             x = BatchNormLayer(x, act=lrelu1, is_train=is_train, name='BN1-rb/%s' % i)
             x = Conv3dLayer(x, shape=[kernel, kernel, kernel, feature_size, feature_size], strides=[1, 1, 1, 1, 1],
                             padding='SAME', W_init=w_init, name='conv2-rb/%s' % i)
-            x = BatchNormLayer(x, is_train=is_train, name='BN2-rb/%s' % i, )
+            x = BatchNormLayer(x, is_train=is_train, name='BN2-rb/%s' % i)
             # short skip connection
             x = ElementwiseLayer([x, inputadd], tf.add, name='add-rb/%s' % i)
             inputadd = x
@@ -221,6 +222,7 @@ def train(upscaling_factor, residual_blocks, feature_size, path_prediction, chec
     net_gen = generator(input_gen=t_input_gen, kernel=3, nb=residual_blocks, upscaling_factor=upscaling_factor,
                         img_height=img_height, img_width=img_width, img_depth=img_depth, subpixel_NN=subpixel_NN, nn=nn,
                         feature_size=feature_size, is_train=True, reuse=False)
+
     net_d, disc_out_real = discriminator(input_disc=t_target_image, kernel=3, is_train=True, reuse=False)
     _, disc_out_fake = discriminator(input_disc=net_gen.outputs, kernel=3, is_train=True, reuse=True)
 
@@ -372,9 +374,9 @@ def train(upscaling_factor, residual_blocks, feature_size, path_prediction, chec
                     else:
                         val_min = min_real
                     val_psnr = psnr(np.multiply(x_true_img, xm[0]), np.multiply(x_pred_img, xm[0]),
-                                    dynamic_range=val_max - val_min)
+                                    data_range=val_max - val_min)
                     val_ssim = ssim(np.multiply(x_true_img, xm[0]), np.multiply(x_pred_img, xm[0]),
-                                    dynamic_range=val_max - val_min, multichannel=True)
+                                    data_range=val_max - val_min, multichannel=True)
 
         saver.save(sess=session, save_path=checkpoint_dir, global_step=step)
         print("Saved step: [%2d]" % step)
@@ -440,12 +442,12 @@ def evaluate(upsampling_factor, residual_blocks, feature_size, checkpoint_dir_re
         else:
             val_min = min_real
         val_psnr = psnr(np.multiply(volume_real, volume_mask), np.multiply(volume_generated, volume_mask),
-                        dynamic_range=val_max - val_min)
+                        data_range=val_max - val_min)
         array_psnr[i] = val_psnr
 
         totalpsnr += val_psnr
         val_ssim = ssim(np.multiply(volume_real, volume_mask), np.multiply(volume_generated, volume_mask),
-                        dynamic_range=val_max - val_min, multichannel=True)
+                        data_range=val_max - val_min, multichannel=True)
         array_ssim[i] = val_ssim
         totalssim += val_ssim
         print(val_psnr)

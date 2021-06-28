@@ -1,0 +1,5 @@
+tensorflow==2.0.0
+scipy
+nibabel
+scikit-image==0.16.1
+tensorlayer

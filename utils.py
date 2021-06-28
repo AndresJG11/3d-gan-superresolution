@@ -3,7 +3,7 @@ from keras.utils import conv_utils
 from keras.layers.convolutional import UpSampling3D
 from keras.engine import InputSpec
 from tensorlayer.layers import *
-
+import tensorflow as tf
 
 class UpSampling3D(Layer):
     def __init__(self, size=(2, 2, 2), **kwargs):
